@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rodaddy/ai-marketing-panel/kit.schema.json",
+  "title": "ai-marketing-panel kit manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "id",
+    "name",
+    "version",
+    "description",
+    "entrypoints",
+    "installation",
+    "requirements",
+    "verification"
+  ],
+  "properties": {
+    "$schema": { "const": "./kit.schema.json" },
+    "schema_version": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "entrypoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["install", "readme"],
+      "properties": {
+        "install": { "$ref": "#/$defs/relativePath" },
+        "readme": { "$ref": "#/$defs/relativePath" },
+        "start": { "$ref": "#/$defs/relativePath" },
+        "operator": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "installation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "payloads", "writes", "preserve", "forbidden"],
+      "properties": {
+        "strategy": { "const": "agent-managed" },
+        "payloads": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "kind", "destination"],
+            "properties": {
+              "source": { "$ref": "#/$defs/relativePath" },
+              "kind": {
+                "enum": ["agent-skill", "project-files", "templates", "reference", "mixed"]
+              },
+              "destination": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "writes": { "$ref": "#/$defs/stringList" },
+        "preserve": { "$ref": "#/$defs/stringList" },
+        "forbidden": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtimes"],
+      "properties": {
+        "runtimes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version", "check", "required_for"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "version": { "type": "string", "minLength": 1 },
+              "check": { "$ref": "#/$defs/argv" },
+              "required_for": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "commands"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/relativePath" }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "runtime", "entrypoint", "argv", "cwd"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "runtime": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "entrypoint": { "$ref": "#/$defs/relativePath" },
+              "argv": { "$ref": "#/$defs/argv" },
+              "cwd": { "$ref": "#/$defs/relativeDirectory" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        { "not": { "pattern": "^(?:/|\\\\|[A-Za-z]:[\\\\/])" } },
+        { "not": { "pattern": "(?:^|[\\\\/])\\.{1,2}(?:[\\\\/]|$)" } }
+      ]
+    },
+    "relativeDirectory": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        { "not": { "pattern": "^(?:/|\\\\|[A-Za-z]:[\\\\/])" } },
+        { "not": { "pattern": "(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)|[\\\\/]\\.(?:[\\\\/]|$)|^\\./" } }
+      ]
+    },
+    "argv": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "stringList": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

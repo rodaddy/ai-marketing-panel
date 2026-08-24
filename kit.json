@@ -1,0 +1,89 @@
+{
+  "$schema": "./kit.schema.json",
+  "schema_version": 1,
+  "id": "synthetic-customer-panel",
+  "name": "AI Marketing Panel",
+  "version": "1.2.3",
+  "description": "Build, run, and calibrate evidence-labeled synthetic customer panels.",
+  "entrypoints": {
+    "install": "INSTALL.md",
+    "readme": "README.md",
+    "start": "START-HERE.md",
+    "operator": "OPERATIONS-MANUAL.md"
+  },
+  "installation": {
+    "strategy": "agent-managed",
+    "payloads": [
+      {
+        "source": "skills/synthetic-customer-panel",
+        "kind": "agent-skill",
+        "destination": "the host agent's documented persistent skill or project mechanism"
+      }
+    ],
+    "writes": [
+      "the selected host agent's persistent skill or project location",
+      "a disposable workspace under the host's configured temporary workspace during verification"
+    ],
+    "preserve": [
+      "all existing customer and dogfood panel workspaces",
+      "the previous installation until an upgrade is verified"
+    ],
+    "forbidden": [
+      "customer data inside this reusable base kit",
+      "live work inside pocs/",
+      "replacement of an unrelated destination collision",
+      "silent machine-level runtime installation or upgrade"
+    ]
+  },
+  "requirements": {
+    "runtimes": [
+      {
+        "id": "node",
+        "version": ">=22.18.0",
+        "check": ["node", "--version"],
+        "required_for": [
+          "deterministic panel initialization",
+          "panel and run validation",
+          "full installation verification"
+        ]
+      }
+    ]
+  },
+  "verification": {
+    "files": [
+      "INSTALL.md",
+      "kit.json",
+      "kit.schema.json",
+      "VERSION",
+      "CHANGELOG.md",
+      "README.md",
+      "skills/synthetic-customer-panel/SKILL.md",
+      "skills/synthetic-customer-panel/KIT-METADATA.json",
+      "skills/synthetic-customer-panel/agents/openai.yaml",
+      "skills/synthetic-customer-panel/scripts/init-panel.ts",
+      "skills/synthetic-customer-panel/scripts/verify-install.ts",
+      "skills/synthetic-customer-panel/scripts/validate-panel.ts",
+      "verify-copied-install.ts",
+      "skills/synthetic-customer-panel/scripts/prepare-run.ts",
+      "skills/synthetic-customer-panel/scripts/validate-run.ts",
+      "skills/synthetic-customer-panel/scripts/room.sh",
+      "skills/synthetic-customer-panel/scripts/check-node.sh"
+    ],
+    "commands": [
+      {
+        "id": "copied-install-equality",
+        "runtime": "node",
+        "entrypoint": "verify-copied-install.ts",
+        "argv": ["node", "verify-copied-install.ts", "<copied-destination>"],
+        "cwd": "."
+      },
+      {
+        "id": "installed-payload-integrity",
+        "runtime": "node",
+        "entrypoint": "scripts/verify-install.ts",
+        "argv": ["node", "scripts/verify-install.ts"],
+        "cwd": "skills/synthetic-customer-panel"
+      }
+    ]
+  }
+}

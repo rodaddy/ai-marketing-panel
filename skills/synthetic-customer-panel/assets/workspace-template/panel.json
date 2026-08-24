@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "panel": {
+    "id": "__PANEL_ID__",
+    "name": "__PANEL_NAME__",
+    "objective": "Replace with the exact decision this panel informs.",
+    "decision_signal": "Replace with the observable customer action or judgment.",
+    "artifact_types": [],
+    "status": "draft",
+    "created_at": "__CREATED_AT__",
+    "review_due": "Set an evidence review date.",
+    "owner_context": "owner/OWNER-CONTEXT.md",
+    "evidence_index": "evidence/SOURCE-NOTES.md",
+    "calibration_outcome": "Replace with the real outcome measure.",
+    "calibration_horizon": "Replace with the observation horizon."
+  },
+  "execution": {
+    "preferred_mode": "isolated-parallel",
+    "max_parallel_per_wave": 7
+  },
+  "scoring": {
+    "dimensions": []
+  },
+  "seats": []
+}

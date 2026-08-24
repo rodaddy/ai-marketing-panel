@@ -1,0 +1,4 @@
+interface:
+  display_name: "Synthetic Customer Panel"
+  short_description: "Build and run evidence-grounded customer panels"
+  default_prompt: "Use $synthetic-customer-panel to build a customer panel and wash this artifact."

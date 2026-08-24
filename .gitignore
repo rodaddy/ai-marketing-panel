@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+
+# Generated panel workspaces. A room holds real customer evidence and run
+# output; it is never committed back into the kit.
+/rooms/
+/runs/
+/_archive/
