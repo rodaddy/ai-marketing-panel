@@ -94,9 +94,10 @@ cd ai-marketing-panel
 bash skills/synthetic-customer-panel/scripts/check-node.sh
 ```
 
-Then install the skill into your agent. In the Claude app, drag the kit zip
-into the conversation; in Codex, unzip the kit to a folder and point Codex at
-it. Start with [START-HERE.md](START-HERE.md); the full agent-run install
+Then install the skill into your agent. The kit zip is this folder zipped
+(no release asset ships one; GitHub's Code > Download ZIP gives the same
+files). In the Claude app, drag the kit zip into the conversation; in Codex,
+unzip the kit to a folder and point Codex at it. Start with [START-HERE.md](START-HERE.md); the full agent-run install
 contract is [INSTALL.md](INSTALL.md) and the plain-language guide is
 [OPERATIONS-MANUAL.md](OPERATIONS-MANUAL.md). Ask the agent to "build a
 customer panel" or "wash this artifact".
