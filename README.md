@@ -232,6 +232,14 @@ own bytes; rerun retained-source `verify-copied-install.ts` to cover the
 installed verifier. Neither mechanism authenticates a publisher or acts as a
 cryptographic signature.
 
+## How it was built
+
+The kit went from 1.0.0 to 1.2.3 in seven releases between 2026-07-16 and
+2026-08-17, built by AI coding agents with a deterministic validator for every
+step a script can check, and hardened by a review from a second model family.
+The build story covers each release, the design decisions, the tests, and what
+had to be corrected along the way: [docs/BUILD-STORY.md](docs/BUILD-STORY.md).
+
 ## Project status
 
 Active, version 1.2.3 (see [CHANGELOG.md](CHANGELOG.md)). Verified working in
