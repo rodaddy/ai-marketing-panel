@@ -69,7 +69,7 @@ defined below.
      source-side command, with only its destination placeholder replaced). It
      must report copied-install equality. Then, from the copied destination,
      run `node scripts/verify-install.ts` exactly as its declared argv array. It
-     must report `PASS synthetic-customer-panel@1.2.3` and the copied
+     must report `PASS synthetic-customer-panel@1.2.8` and the copied
      destination. The source-side check compares the retained source payload to
      the copy byte-for-byte, including `KIT-METADATA.json` and
      `scripts/verify-install.ts`. The copied local check checks its embedded
@@ -150,7 +150,7 @@ End with exactly this structure:
 KIT_INSTALL_RECEIPT
 status: installed | installed-degraded | session-only | handoff-required | blocked
 kit: synthetic-customer-panel
-version: 1.2.3
+version: 1.2.8
 mode: full | persistent-files | session-only | none
 destination: <path, project, or session>
 runtimes: <checked Node version, not-available, or not-checked>

@@ -70,6 +70,18 @@ stays free-form.
 Declared specialist flags and integrity failures can cap or override the total.
 Explain every override.
 
+`OUTCOME.json` also records `consensus: { spread, agreement }`, recomputed by
+the validator from the customer reactions (every non-specialist seat with a
+reaction). Score each customer seat `+INTENSITY` for `YES` and `-INTENSITY` for
+`NO`. `spread` is the maximum minus the minimum of those scores, an integer
+0-10. `agreement` is the share of customer seats on the majority `DECISION`,
+rounded to two decimals. A mismatch fails as `consensus-mismatch`. When every
+customer seat gives the same `DECISION`, `consensus.pressed_seat` names the
+seat pressed under the unanimity rule in `press-protocol.md`; a missing name or
+a missing `reactions/<seat-id>.pressed.md` fails as `unanimity-unpressed`.
+A run with no customer-seat reactions (only specialist seats reacted) records
+`consensus: { spread: 0, agreement: 0 }` and skips the unanimity press.
+
 ## 4. Decision contract
 
 `RESULT.md` returns, and `OUTCOME.json.result` records:
@@ -80,6 +92,12 @@ Explain every override.
 
 Include confidence, strongest evidence, strongest dissent, limitations, and the
 smallest real-world experiment that could prove the panel wrong.
+
+The cap is enforced. When any specialist reaction has `GATE: FLAG`, or any
+`fit: core` seat answers `DECISION: NO` with `INTENSITY` 4 or 5, the result is
+`REVISE` or `STOP`. It may be `SHIP` only when `result.override` is a non-empty
+string that names every such seat id and explains why the owner ships anyway.
+The validator fails an uncapped `SHIP` as `cap-not-applied`.
 
 `RESULT.md` must contain exactly one standalone `RESULT_DECISION:
 <SHIP|REVISE|STOP>` marker and one `RESULT_CONFIDENCE: <LOW|MEDIUM|HIGH>`

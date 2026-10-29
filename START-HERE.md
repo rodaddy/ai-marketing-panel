@@ -11,7 +11,7 @@ in `kit.json`, verify the strongest mode it can support, and tell you what to do
 next. You do not need to install or understand programming tools yourself.
 
 For internal dogfooding, first duplicate this entire kit into
-`working_pocs/<use-case>/`. Customer work uses an equivalent owned destination.
+`pocs/<use-case>/_working/`. Customer work uses an equivalent owned destination.
 Never point a live panel at this PoC.
 
 After installation:

@@ -3,8 +3,8 @@ import { readdir, readFile } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 
 const KIT_ID = "synthetic-customer-panel";
-const VERSION = "1.2.3";
-const METADATA_SHA256 = "6831e277f8628439f5375a4ce36627f280d149b15220db78d1c5b9ad33b5037b";
+const VERSION = "1.2.8";
+const METADATA_SHA256 = "60983fb9f5580a8a61af21e4fbda7b008def3397db1740e19e429c44e469c957";
 const ROOT = resolve(import.meta.dirname, "..");
 const METADATA_PATH = resolve(ROOT, "KIT-METADATA.json");
 const EXEMPT_FILES = new Set(["KIT-METADATA.json", "scripts/verify-install.ts"]);

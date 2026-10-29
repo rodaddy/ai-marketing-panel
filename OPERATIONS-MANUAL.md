@@ -58,6 +58,13 @@ isolated mode remains an unverified warning. It returns:
 - a directional ship/revise/stop decision;
 - the smallest useful next experiment.
 
+To get the report, say "render the report": the AI writes `REPORT.html` in the
+run folder; open it in a browser and press Download PDF to save a PDF.
+
+To add public customer language, give the AI links to reviews or forum threads
+and say "fetch these as evidence": it saves each page as a numbered source
+(`S001`, `S002`, ...) that seat dossiers can quote, alongside your own evidence.
+
 ## Rewrite and retest
 
 Say “rewrite and retest.” The AI writes three materially different revisions

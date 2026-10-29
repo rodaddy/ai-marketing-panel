@@ -60,6 +60,7 @@ Use every heading from `assets/workspace-template/dossiers/DOSSIER-TEMPLATE.md`:
 13. Voice notes
 14. Boundaries and likely no
 15. Modeled assumptions
+16. Where this composite misfires
 
 ## 4. Writing rules
 
@@ -73,6 +74,18 @@ Use every heading from `assets/workspace-template/dossiers/DOSSIER-TEMPLATE.md`:
 - A hard-no must remain capable of saying no to excellent work.
 - A wrong-fit seat must describe what mistakenly attracts it.
 - A specialist must use an explicit gate and `NOT-APPLICABLE` customer decision.
+- A double-quoted span of four or more words (straight or curly quotes) on a
+  `- Evidence:` line is a verbatim quote: it must appear, after whitespace and
+  quote-character normalization, in some file under the workspace `evidence/`.
+  Shorter quoted spans are labels and are exempt. `validate-panel.ts` fails an
+  unmatched quote as `dossier-quote-unverified`.
+- A fetched public source is cited by its `S<NNN>` id from
+  `evidence/SOURCES.md` followed by the verbatim quote:
+  `- Evidence: S003 "exact words from the page" — what it supports`.
+- `## Where this composite misfires` names the situations where this
+  composite's reaction should not be trusted: buyers, channels, or artifact
+  types it does not model. It carries the same 25-word substance minimum as
+  every other section.
 
 ## 5. Quality review
 

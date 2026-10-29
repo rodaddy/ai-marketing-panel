@@ -83,3 +83,9 @@ and hard-no seats, state what a healthy no looks like.
 List every useful but unsupported modeling choice and how real outcomes could
 confirm or disprove it. These labels make the dossier auditable; they do not
 make the composite a real customer.
+
+## Where this composite misfires
+
+Name the situations where this composite's reaction should not be trusted:
+the buyers, channels, artifact types, or decisions it does not model, and
+where a real customer would likely answer differently.
