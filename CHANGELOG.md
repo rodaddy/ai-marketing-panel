@@ -98,8 +98,6 @@ Panel report renderer and default avatars.
   `REPORT-COPY.json` quote shows only when the seat's reaction holds it
   verbatim, and a malformed file is ignored with a warning; the hero heading
   is the objective's first sentence with the rest beneath it.
-- `examples/ledger-listing/DESIGN-BRIEF.md` no longer names a nonexistent
-  `panel-v2/ledger/img/` folder.
 
 ## [1.2.4] - 2026-10-28
 

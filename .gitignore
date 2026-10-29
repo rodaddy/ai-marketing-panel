@@ -6,6 +6,3 @@ node_modules/
 /rooms/
 /runs/
 /_archive/
-
-# qmd is retired here (dev#510); the allowlist is ~/.config/qmd/development.yml
-.qmd/
