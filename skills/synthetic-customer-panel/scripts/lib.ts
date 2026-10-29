@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { readFile, realpath, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
@@ -23,6 +23,7 @@ export interface PanelSeat {
   dossier: string;
   decision_signal: string;
   active: boolean;
+  gender?: string;
 }
 
 export interface ScoreDimension {
@@ -81,9 +82,17 @@ export const REQUIRED_DOSSIER_HEADINGS = [
   "Voice notes",
   "Boundaries and likely no",
   "Modeled assumptions",
+  "Where this composite misfires",
 ] as const;
 
 const PANEL_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// The values assets/avatars/avatars.json uses; they only choose a seat's default face.
+export const SEAT_GENDERS = new Set(["woman", "man"]);
+export const SEAT_AGE_BANDS =new Set(["20s", "30s", "40s", "50s", "60s", "70s"]);
+// RUN.json execution_mode values; validate-run judges them and render-report describes them.
+export const ISOLATED_MODES = new Set(["isolated-parallel", "isolated-sequential"]);
+export const SHARED_CONTEXT_MODE = "sequential-shared-context";
+export const EXECUTION_MODES = new Set(["unassigned", ...ISOLATED_MODES, SHARED_CONTEXT_MODE]);
 const ALLOWED_KINDS = new Set<SeatKind>([
   "buyer",
   "user",
@@ -260,6 +269,11 @@ function add(
   issues.push({ severity, code, message, path });
 }
 
+// The one active test: validate-panel and run-view count a seat as active unless it says active: false.
+export function isActiveSeat(seat: { active?: unknown }): boolean {
+  return seat.active !== false;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -360,11 +374,53 @@ function hasSubstantiveLabeledLine(text: string, label: string): boolean {
   return false;
 }
 
+const MIN_QUOTE_WORDS = 4;
+
+/** Collapse whitespace and quote characters so a verbatim check survives typography. */
+function normalizeQuoteText(value: string): string {
+  return value.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim();
+}
+
+/** Normalized text of every readable file under the workspace evidence/ folder. */
+async function loadEvidenceCorpus(workspace: string): Promise<string> {
+  let evidenceDir: string;
+  try {
+    evidenceDir = await resolveReadWithin(workspace, "evidence");
+  } catch {
+    return "";
+  }
+  const texts: string[] = [];
+  for (const entry of await readdir(evidenceDir, { recursive: true })) {
+    try {
+      const path = await resolveReadWithin(workspace, `evidence/${entry}`);
+      if (await fileExists(path)) texts.push(normalizeQuoteText(await readUtf8(path)));
+    } catch {
+      continue; // an escaping symlink is not evidence
+    }
+  }
+  return texts.join("\n");
+}
+
+/** Quoted spans of MIN_QUOTE_WORDS+ words on "- Evidence:" lines that no evidence file contains. */
+function unverifiedQuotes(text: string, corpus: string): string[] {
+  const missing: string[] = [];
+  for (const line of text.match(/^-\s*Evidence:.*$/gim) ?? []) {
+    for (const match of line.matchAll(/["“”]([^"“”]+)["“”]/g)) {
+      const quote = normalizeQuoteText(match[1]);
+      if (quote.split(" ").length >= MIN_QUOTE_WORDS && !corpus.includes(quote)) {
+        missing.push(quote);
+      }
+    }
+  }
+  return missing;
+}
+
 async function validateDossier(
   workspace: string,
   seat: Record<string, unknown>,
   issues: ValidationIssue[],
   allowDraft: boolean,
+  evidenceCorpus: string,
 ): Promise<{ path: string; vocabulary: Set<string> } | null> {
   const severity = readinessSeverity(allowDraft);
   const seatId = typeof seat.id === "string" ? seat.id : "(missing id)";
@@ -410,6 +466,9 @@ async function validateDossier(
   const assumptions = sectionText(text, "Modeled assumptions") ?? "";
   if (!hasSubstantiveLabeledLine(evidenceBasis, "Evidence")) {
     add(issues, severity, "dossier-evidence-label", `seat ${seatId} needs a substantive "- Evidence: label — support" line`, candidate);
+  }
+  for (const quote of unverifiedQuotes(text, evidenceCorpus)) {
+    add(issues, severity, "dossier-quote-unverified", `seat ${seatId} quotes "${quote.slice(0, 60)}" on an Evidence line, but no file under evidence/ contains it verbatim`, candidate);
   }
   if (!hasSubstantiveLabeledLine(assumptions, "Assumption")) {
     add(issues, severity, "dossier-assumption-label", `seat ${seatId} needs a substantive "- Assumption: label — test" line`, candidate);
@@ -485,14 +544,16 @@ export async function validatePanel(
   if (!Array.isArray(manifest.seats)) {
     add(issues, "error", "seats", "seats must be an array", "panel.json");
   }
-  const activeSeats = seats.filter((seat): seat is PanelSeat => isRecord(seat) && seat.active === true) as PanelSeat[];
+  const activeSeats = seats.filter((seat): seat is PanelSeat => isRecord(seat) && isActiveSeat(seat)) as PanelSeat[];
   if (activeSeats.length < 5 || activeSeats.length > 15) {
     add(issues, readinessSeverity(allowDraft), "seat-count", `active seat count is ${activeSeats.length}; expected 5-15`, "panel.json");
   }
 
+  const evidenceCorpus = await loadEvidenceCorpus(workspace);
   const seenIds = new Set<string>();
   const dossierPaths = new Map<string, string>();
   const dossierBodies: Array<{ seatId: string; path: string; vocabulary: Set<string> }> = [];
+  const avatarMeta = JSON.parse(await readFile(resolve(import.meta.dirname, "..", "assets", "avatars", "avatars.json"), "utf8").catch(() => "[]")) as Array<{ file: string; kind?: string; gender?: string }>;
   for (const seat of seats) {
     if (!isRecord(seat)) {
       add(issues, "error", "seat-shape", "every seat must be an object", "panel.json");
@@ -514,12 +575,31 @@ export async function validatePanel(
     if (!ALLOWED_FITS.has(seat.fit as SeatFit)) {
       add(issues, "error", "seat-fit", `seat ${seatId} fit is invalid`, "panel.json");
     }
+    if (seat.gender !== undefined && !SEAT_GENDERS.has(seat.gender as string)) {
+      add(issues, "error", "bad-seat-gender", `seat ${seatId} gender must be one of woman, man`, "panel.json");
+    }
+    if (isActiveSeat(seat) && seat.gender === undefined && seat.kind !== "specialist" && ALLOWED_KINDS.has(seat.kind as SeatKind)) {
+      add(issues, "error", "missing-seat-gender", `seat ${seatId} is a ${seat.kind} seat and must declare gender (woman, man) so its default face matches`, "panel.json");
+    }
+    if (seat.age_band !== undefined && !SEAT_AGE_BANDS.has(seat.age_band as string)) {
+      add(issues, "error", "bad-seat-age-band", `seat ${seatId} age_band must be one of 20s, 30s, 40s, 50s, 60s, 70s`, "panel.json");
+    }
+    if (typeof seat.avatar === "string") {
+      const row = avatarMeta.find((entry) => entry.file === seat.avatar);
+      if (row && (seat.kind === "specialist") !== (row.kind === "robot")) {
+        add(issues, "warning", "avatar-kind-mismatch", `seat ${seatId} avatar ${seat.avatar} is ignored: robot faces go only to specialist seats, and specialists take only robot faces`, "panel.json");
+      } else if (!row) {
+        add(issues, "error", "avatar-unknown", `seat ${seatId} avatar ${seat.avatar} is not in assets/avatars/avatars.json`, "panel.json");
+      } else if (seat.gender !== undefined && seat.kind !== "specialist" && row.gender !== seat.gender) {
+        add(issues, "error", "avatar-gender-mismatch", `seat ${seatId} is ${seat.gender} but avatar ${seat.avatar} is ${row.gender ?? "undeclared"}`, "panel.json");
+      }
+    }
     if (typeof seat.active !== "boolean") {
       add(issues, "error", "seat-active", `seat ${seatId} active must be boolean`, "panel.json");
     }
-    if (seat.active === true) {
+    if (isActiveSeat(seat)) {
       requiredString(issues, seat.decision_signal, `seat ${seatId} decision_signal`, allowDraft);
-      const dossier = await validateDossier(workspace, seat, issues, allowDraft);
+      const dossier = await validateDossier(workspace, seat, issues, allowDraft, evidenceCorpus);
       if (dossier) {
         const existingSeat = dossierPaths.get(dossier.path);
         if (existingSeat) {
@@ -540,6 +620,21 @@ export async function validatePanel(
     }
   }
 
+  // Default faces never repeat in a panel, so the shipped pool caps each gender and the total.
+  // A warning, not an error: per-run report-img photos can cover the seats the defaults cannot.
+  // Specialists take robot faces, so they never count against the person pool.
+  const faceSeats = activeSeats.filter((seat) => seat.kind !== "specialist");
+  const personFaces = avatarMeta.filter((row) => row.kind !== "robot");
+  const faceGender = (seat: PanelSeat): string | undefined =>
+    seat.gender ?? avatarMeta.find((row) => row.file === (seat as { avatar?: unknown }).avatar)?.gender;
+  for (const [need, ship, what] of [
+    ...[...SEAT_GENDERS].map((g) => [faceSeats.filter((seat) => faceGender(seat) === g).length, personFaces.filter((row) => row.gender === g).length, `${g} faces`] as const),
+    [faceSeats.length, personFaces.length, "faces in total"] as const,
+  ]) {
+    if (need > ship) {
+      add(issues, "warning", "not-enough-faces", `panel needs ${need} ${what} but the kit ships ${ship} and never repeats one; the render fails for seats without a <run-folder>/report-img/<seat-id>.jpg photo once the defaults run out`, "panel.json");
+    }
+  }
   if (!activeSeats.some((seat) => seat.fit === "core")) {
     add(issues, readinessSeverity(allowDraft), "missing-core-seat", "at least one active core seat is required", "panel.json");
   }
@@ -592,4 +687,80 @@ export function formatIssues(issues: ValidationIssue[]): string {
 
 export function hasErrors(issues: ValidationIssue[]): boolean {
   return issues.some((issue) => issue.severity === "error");
+}
+
+/**
+ * Default report avatar per seat, from `meta` (the avatars.json rows); faces
+ * never repeat, and a seat that declares `gender` only ever gets a face of it.
+ * Gendered seats go first because they can take only one gender's faces, while
+ * a gender-less seat (a specialist such as a gate reviewer) can take any face;
+ * so a panel within the per-gender and total counts always resolves, whatever
+ * the seat order. Order: (1) gendered seats' own `avatar` when it is their
+ * gender and unused; (2) other gendered seats, an unused face of their gender,
+ * age band first; (3) gender-less seats, their own `avatar` when unused, else
+ * an unused face of the gender with the most faces left (a tie probes all
+ * unused faces). Each probe starts at the seat-id hash and walks forward, so
+ * the pick is stable. Throws only when a seat has no unused face it may take.
+ * Specialist seats (kind "specialist") take only robot rows (kind "robot"),
+ * and every other seat takes only person rows, so a robot never reads as a buyer.
+ */
+export function pickAvatars(
+  allSeats: Array<{ id: string; kind?: unknown; avatar?: unknown; gender?: unknown; age_band?: unknown }>,
+  files: string[],
+  meta: Array<{ file: string; kind?: string; gender?: string; age_band?: string }>,
+): Map<string, string> {
+  const picked = new Map<string, string>();
+  const used = new Set<string>();
+  const robots = meta.filter((row) => row.kind === "robot" && files.includes(row.file)).map((row) => row.file).sort();
+  const people = meta.filter((row) => row.kind !== "robot");
+  const match = (gender: unknown, band: unknown): string[] =>
+    people.filter((row) => (gender === undefined || row.gender === gender) && (band === undefined || row.age_band === band) && files.includes(row.file)).map((row) => row.file).sort();
+  const free = (id: string, pool: string[]): string | undefined => {
+    const start = createHash("sha256").update(id).digest().readUInt32BE(0) % (pool.length || 1);
+    for (let step = 0; step < pool.length; step += 1) {
+      const candidate = pool[(start + step) % pool.length];
+      if (!used.has(candidate)) return candidate;
+    }
+    return undefined;
+  };
+  const take = (seat: { id: string }, file: string): void => {
+    picked.set(seat.id, file);
+    used.add(file);
+  };
+  // A specialist's gender is ignored: it takes a robot, and its own avatar only when that is a robot.
+  // shortcut: the kit ships 3 robots, so a 4th specialist repeats one (robots only); ship more robots if panels grow past 3 gates.
+  const seats = allSeats.filter((seat) => seat.kind !== "specialist");
+  for (const seat of allSeats) {
+    if (seat.kind !== "specialist") continue;
+    const own = typeof seat.avatar === "string" && robots.includes(seat.avatar) && !used.has(seat.avatar) ? seat.avatar : undefined;
+    const pick = own ?? free(seat.id, robots) ?? robots[createHash("sha256").update(seat.id).digest().readUInt32BE(0) % (robots.length || 1)];
+    if (pick === undefined) throw new Error(`the kit ships no robot faces for specialist seat ${seat.id}; reinstall the kit or put report-img/${seat.id}.jpg in the run folder`);
+    take(seat, pick);
+  }
+  const gendered = seats.filter((seat) => seat.gender !== undefined);
+  // An explicit avatar already held by an earlier seat, or of another gender, falls through to the pool pick.
+  for (const seat of gendered) {
+    if (typeof seat.avatar === "string" && !used.has(seat.avatar) && match(seat.gender, undefined).includes(seat.avatar)) take(seat, seat.avatar);
+  }
+  const fail = (seat: { id: string; gender?: unknown }, pool: string[]): never => {
+    throw new Error(`the kit ships ${pool.length} ${seat.gender ?? "default"} faces and all are taken before seat ${seat.id}; faces never repeat, so put report-img/<seat-id>.jpg photos in the run folder`);
+  };
+  for (const seat of gendered) {
+    if (picked.has(seat.id)) continue;
+    const pool = match(seat.gender, undefined);
+    take(seat, (seat.age_band !== undefined ? free(seat.id, match(seat.gender, seat.age_band)) : undefined) ?? free(seat.id, pool) ?? fail(seat, pool));
+  }
+  for (const seat of seats) {
+    if (seat.gender !== undefined) continue;
+    const all = match(undefined, undefined);
+    if (typeof seat.avatar === "string" && !used.has(seat.avatar) && all.includes(seat.avatar)) {
+      take(seat, seat.avatar);
+      continue;
+    }
+    const left = (gender: string): number => match(gender, undefined).filter((file) => !used.has(file)).length;
+    const [most, next] = [...new Set(people.map((row) => row.gender).filter((gender) => gender !== undefined))].sort((a, b) => left(b) - left(a));
+    const pool = most !== undefined && (next === undefined || left(most) > left(next)) ? match(most, undefined) : all;
+    take(seat, free(seat.id, pool) ?? fail(seat, all));
+  }
+  return picked;
 }

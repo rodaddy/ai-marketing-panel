@@ -231,6 +231,7 @@ async function main(): Promise<void> {
       "# Reactions",
       "",
       "Save one immutable reaction as <seat-id>.md for every expected seat.",
+      "A unanimity press, when required, is saved as <seat-id>.pressed.md.",
       "Do not put synthesis in this folder.",
       "",
     ].join("\n"),
@@ -253,6 +254,7 @@ async function main(): Promise<void> {
     `${JSON.stringify(
       {
         schema_version: 1,
+        consensus: { spread: null, agreement: null, pressed_seat: null },
         scorecard: { dimensions: [], total: null },
         synthesis: { evidence: [], dissent: [], confidence: "", limitations: [] },
         result: {

@@ -3,7 +3,7 @@
   "schema_version": 1,
   "id": "synthetic-customer-panel",
   "name": "AI Marketing Panel",
-  "version": "1.2.3",
+  "version": "1.2.8",
   "description": "Build, run, and calibrate evidence-labeled synthetic customer panels.",
   "entrypoints": {
     "install": "INSTALL.md",
@@ -66,6 +66,9 @@
       "verify-copied-install.ts",
       "skills/synthetic-customer-panel/scripts/prepare-run.ts",
       "skills/synthetic-customer-panel/scripts/validate-run.ts",
+      "skills/synthetic-customer-panel/scripts/render-report.ts",
+      "skills/synthetic-customer-panel/scripts/run-view.ts",
+      "skills/synthetic-customer-panel/scripts/fetch-evidence.ts",
       "skills/synthetic-customer-panel/scripts/room.sh",
       "skills/synthetic-customer-panel/scripts/check-node.sh"
     ],

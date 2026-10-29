@@ -3,6 +3,130 @@
 All notable changes to Synthetic Customer Panel are recorded here. This file
 follows Keep a Changelog and Semantic Versioning.
 
+## [Unreleased]
+
+## [1.2.8] - 2026-10-29
+
+- **31 default faces, matched to the seat's gender, never repeated in a panel**. Seats declare `gender` (`woman` or `man`) and optional `age_band`; `avatars.json` labels 17 women and 14 men; a seat without `gender` gets any unused face. `validate-panel.ts` errors `missing-seat-gender` on an active buyer, user, or influencer seat, `avatar-gender-mismatch` / `avatar-unknown` on a bad explicit `avatar`, and warns `not-enough-faces` when a panel needs more faces of a gender, or in total, than ship (use `report-img/` photos); a seat with its own `report-img/` photo uses no default face; `render-report.ts` exits 1 rather than repeat a face; `validate-run.ts` errors on a snapshot `gender` or `age_band` outside the allowed sets.
+- **Old runs.** A pre-1.2.8 run whose snapshot declares no gender renders each photo-less seat with any unused default face, not matched to gender. Re-run with genders declared, or add `report-img/` photos.
+- **`gender: "person"` is refused.** A snapshot that carries `gender: "person"` (from earlier 1.2.8 work, never released) fails `validate-run.ts`; set `woman` or `man`.
+- **Live room removed.** `scripts/render-room.ts`, `ROOM.html` and `roomButton` are gone; `REPORT.html` is the one rendered page.
+- **Full dossier and curated reaction in REPORT.html**. Each card adds a Full dossier (the seat's own `dossiers/` file, read only inside the panel workspace), Full reaction shows Reaction, Lands, Resists, Missing and Change, and a "How this was run" section reports RUN.json seats, mode, runtime, model, unverified isolation and run window.
+- **Answer-first report copy, changes and artifact sections**. `REPORT-COPY.json` may set `headline` and `headings.<room|vote|score|changes|dissent|artifact|method|next>` (empty or non-string values fall back with a warning); REPORT.html adds "What it still needs" from the SYNTHESIS.md smallest-useful-changes section and "The artifact" from the run's own artifact file, in the v2 section order.
+- **v2 visual pieces in REPORT.html**. Hero `question`, `summary` and `tiles` from REPORT-COPY.json (four computed tiles otherwise), a seat-by-seat table in the vote section (`seats.<id>.stops`, else the RESISTS first sentence), changes and dissent as cards, and the dark Next-experiment band with run, room and confidence.
+- **v2 details in REPORT.html**. REPORT-COPY.json `headline_em`, `brand`, `vote_note`, `change_titles`, `dissent_topics` and `footer_brand`; version bars, "N to M" and a Version column when every buyer REACTION opens `VERSION: <x>`; the objective moves into the method section when a headline is set; Download PDF is a pill at the top of the hero; a sticky tab bar links each rendered section, and a clicked tab stays highlighted until the reader scrolls again.
+- **Apply-fix buttons in REPORT.html**. Numbered change cards each get "Apply this fix" and the section gets "Apply all fixes"; a click copies a prompt naming the room, run and exact change text for the panel's own agent, which then makes one variant (`workflows/rewrite-and-retest.md`). No network; hidden in print.
+- **Robot faces and a panel-overview card for specialist seats**. `assets/avatars/` adds `robot-01.jpg` to `robot-03.jpg` (`"kind": "robot"` in avatars.json); specialist seats take only robot faces and render first in the Panel section as a full-width panel-overview card that explains passed or needs fixes and, on needs fixes, the verdict it capped; buyer, user and influencer seats never take a robot. `validate-panel.ts` warns `avatar-kind-mismatch` when a seat names the wrong kind of face, and no longer counts specialists against the person faces.
+
+## [1.2.7] - 2026-10-28
+
+The live room.
+
+### Added
+
+- **`scripts/render-room.ts <run-dir> [--out <file>]`.** Deterministic, Node
+  built-ins only, no server: writes one self-contained `ROOM.html` (default
+  `<run-dir>/ROOM.html`, every image a `data:` URI) for a run that passes
+  `validate-run.ts`, and refuses (exit 1, nothing written) one that does not.
+  The seats sit around a table; after 1 s (or on Play) each speaks in run order
+  for about 3 s with its quote in a bubble and its DECISION or GATE badge, a
+  pressed seat speaks a second time, then the YES/NO tally, spread, agreement,
+  scorecard total and decision land on the table. Pause/Resume, Skip to
+  verdict, a Full report link when `REPORT.html` exists, `#t=<seconds>` jumps
+  to a moment, and reduced motion shows the end state at once.
+
+### Changed
+
+- **`scripts/run-view.ts`.** Run loading, validation refusal, reaction parsing,
+  seat images and quote selection moved out of `render-report.ts` so both
+  renderers share them. `REPORT.html` output is byte-identical to 1.2.6.
+- **Review fixes.** Resume continues the paused turn for its remaining time and
+  Replay appears only after the verdict; the Full report link is relative to the
+  `--out` directory; side seats open the bubble toward the table so no face is
+  covered; seats are looked up by index; a `#t` at the end shows the verdict.
+
+## [1.2.6] - 2026-10-28
+
+Public customer evidence by source id.
+
+### Added
+
+- **`scripts/fetch-evidence.ts <workspace> <url-list-file>`.** No AI, Node
+  built-ins only: fetches each listed public page (20 s timeout), turns HTML
+  into readable text, writes `evidence/sources/S<NNN>.md` with an id, title,
+  url, fetched date and word count, continuing after the highest existing id,
+  and rebuilds `evidence/SOURCES.md` with a Failed list. Exit 0 when a source
+  was written, 1 when none were, 3 on bad arguments or an unwritable workspace.
+- **Dossier citations.** `build-panel.md` step 3 and `dossier-standard.md`
+  cite fetched sources as `S003 "verbatim quote"`, checked by the existing
+  `dossier-quote-unverified` guard. Fetched text supplements, never replaces,
+  the owner's first-party evidence.
+
+### Fixed
+
+- **Test cleanup.** Row R5's `REPORT-COPY.json` is now removed in R2's
+  `before` hook, so a failing R5 cannot leave it in the shared run folder.
+- **Review fixes.** fetch-evidence: an out-of-range numeric entity becomes
+  U+FFFD instead of aborting; a fetch, conversion or write error is recorded
+  in Failed and the run continues, SOURCES.md is always rebuilt and sorted by
+  id number; `</script >` closing tags are dropped; `<nav-menu>` is not taken
+  for `<nav>`; `header`/`footer` are kept (they hold article text); the body
+  is decoded with the content-type charset, else UTF-8.
+
+## [1.2.5] - 2026-10-28
+
+Panel report renderer and default avatars.
+
+### Added
+
+- **`scripts/render-report.ts <run-dir> [--out <file>]`.** Deterministic, no
+  network: refuses a run that fails `validate-run.ts`, else writes one
+  self-contained `REPORT.html` (hero, seat cards with full reactions, vote by
+  fit, scorecard, dissent, limitations, next experiment) with every image
+  inlined and a Download PDF button backed by a print stylesheet.
+- **Default avatars.** `assets/avatars/` holds 24 cartoon seat avatars and 3
+  hero images, composites made by rTech, not real people. A run's
+  `report-img/<seat-id>.jpg` and `hero.jpg` override them; otherwise a seat's
+  `avatar` field, else a stable pick by seat id with no two seats sharing a face.
+
+### Fixed
+
+- **Review fixes.** `render-report.ts <run-dir>` without `--out` now renders
+  instead of printing usage; a seat's explicit avatar already held by an
+  earlier seat falls back to the stable pick (faces unique up to 24 seats);
+  Download PDF and Cmd-P open every reaction before printing; a
+  `REPORT-COPY.json` quote shows only when the seat's reaction holds it
+  verbatim, and a malformed file is ignored with a warning; the hero heading
+  is the objective's first sentence with the rest beneath it.
+
+## [1.2.4] - 2026-10-28
+
+Five deterministic scoring guards.
+
+### Added
+
+- **Verbatim quotes.** A quoted span of four or more words on a dossier
+  `- Evidence:` line must appear in a file under `evidence/`
+  (`dossier-quote-unverified`).
+- **Cap enforced.** A specialist `GATE: FLAG`, or a core seat `DECISION: NO`
+  at `INTENSITY` 4-5, blocks `SHIP` unless `result.override` names every such
+  seat (`cap-not-applied`).
+- **Spread and agreement.** `OUTCOME.json` records `consensus: { spread,
+  agreement }`; the validator recomputes both (`consensus-mismatch`).
+- **Unanimity press.** A unanimous customer decision requires one isolated
+  pressed reaction, `reactions/<seat-id>.pressed.md`, named as
+  `consensus.pressed_seat` (`unanimity-unpressed`). The press prompt is in
+  `references/press-protocol.md`; there is no cross-seat debate.
+- **Misfire section.** Dossiers require `## Where this composite misfires`.
+- **Review fixes.** Press text moved to `references/press-protocol.md` so
+  first-round seats never see it; `result.override` matches whole seat ids; an
+  accepted pressed reaction warns `unverified-isolation`.
+
+### Fixed
+
+- `KIT-METADATA.json` now lists the 13 directory `README.md` files already in
+  the payload; 1.2.3's `verify-install.ts` failed `integrity-file-set` on them.
+
 ## [1.2.3] - 2026-08-17
 
 Cross-family review (Opus + Terra, 2026-08-17) findings on the 1.2.2 hardening
@@ -217,7 +341,7 @@ workspace, so the expensive part (the seats) survives the cheap part (a run).
 ### Changed
 
 - Moved the reusable source into `pocs/portable-kits/`; real use now happens
-  only in copies under `working_pocs/`.
+  only in copies under `pocs/<name>/_working/`.
 
 ## [1.0.0] - 2026-07-16
 

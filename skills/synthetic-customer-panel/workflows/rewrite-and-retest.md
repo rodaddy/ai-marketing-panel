@@ -24,6 +24,11 @@ Write three materially different versions, not synonym swaps:
 Preserve truthful claims, accessibility, and declared gates. Use owner voice
 only here, and do not over-amplify stylistic quirks.
 
+When the request names specific changes, for example a prompt copied from a
+report's "Apply this fix" or "Apply all fixes" button, make exactly one
+variant that applies only those changes, in the given order, instead of three
+variants. Every other rule in this workflow stays.
+
 ## 3. Retest cleanly
 
 Prepare a fresh run for each variant. Use the same panel snapshot, scoring

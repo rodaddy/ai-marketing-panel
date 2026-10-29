@@ -10,9 +10,8 @@ The agent will inspect its environment, install only the requirements declared
 in `kit.json`, verify the strongest mode it can support, and tell you what to do
 next. You do not need to install or understand programming tools yourself.
 
-For internal dogfooding, first duplicate this entire kit into
-`working_pocs/<use-case>/`. Customer work uses an equivalent owned destination.
-Never point a live panel at this PoC.
+Install a copy of this kit for each real use, and keep this checkout clean as
+the reference source.
 
 After installation:
 

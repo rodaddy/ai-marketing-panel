@@ -61,8 +61,10 @@ first-party evidence, enough seats, at least one wrong-fit or hard-no seat and
 3-8 scoring dimensions. `prepare-run.ts` copies the artifact into a new run
 folder and stages one task per seat, each seat reacts in an isolated context, and the
 synthesis and score are written as separate stages. `validate-run.ts` checks
-the finished run, and `room.sh` archives it and resets the room for the next
-artifact.
+the finished run, `render-report.ts` turns a validated run into one
+self-contained `REPORT.html`, and `room.sh` archives the run and resets the
+room for the next artifact. `fetch-evidence.ts` can pull public customer pages
+into the workspace as numbered sources that dossiers cite by id.
 
 ![The kit's validator refusing a fresh, unfilled panel](docs/images/terminal.png)
 
@@ -81,6 +83,18 @@ refusing it until the brief, evidence, seats and scoring are filled in.*
 7. Produces three rewrites and retests when useful.
 8. Records predictions and later real outcomes for calibration.
 9. Named rooms: build a panel once, `clean` it, and run the next artifact.
+10. Renders a validated run as one `REPORT.html`: seat cards with full
+    dossiers and reactions, the vote by seat, the scorecard, dissent, the
+    changes it still needs with copy-a-prompt "Apply this fix" buttons, how
+    the run was done, and the next experiment. Every image is inlined and a
+    Download PDF button prints it. `REPORT.html` is the one rendered page.
+11. Ships 31 default cartoon faces (17 women, 14 men), 3 robot faces for
+    specialist seats and 3 hero images. A seat's declared `gender` picks its
+    face and no person face repeats within a panel. Put your own photos in a
+    run's `report-img/` to use them instead.
+12. Deterministic scoring guards: verbatim evidence quotes, the cap on a hard
+    no or a specialist flag, recomputed spread and agreement, and an isolated
+    press of one seat when the panel is unanimous.
 
 The quality of the dossiers is the product. Prompts alone are not a panel.
 
@@ -160,7 +174,7 @@ templates, each reaction frozen before the next dossier is loaded.
   Apple's stock bash 3.2.
 - **Node 22.18.0+ is a stated T2 REQUIREMENT for the panel validators.**
   `init-panel.ts`, `validate-panel.ts`, `prepare-run.ts`, `validate-run.ts`,
-  and `verify-install.ts` are TypeScript and are invoked with plain `node`,
+  `render-report.ts`, `fetch-evidence.ts`, and `verify-install.ts` are TypeScript and are invoked with plain `node`,
   which runs them directly — no flags, build step, bundler, or `npm install`.
 
   Check the floor with the kit's own preflight, which needs only bash and
@@ -201,8 +215,15 @@ templates, each reaction frozen before the next dossier is loaded.
   metadata and non-verifier file check to run from the copied payload.
 - `skills/synthetic-customer-panel/scripts/check-node.sh` — bash-only Node
   floor preflight; prints the upgrade action when the machine is short.
+- `skills/synthetic-customer-panel/scripts/render-report.ts` — renders a
+  validated run as one self-contained `REPORT.html`; `run-view.ts` holds the
+  run loading it uses.
+- `skills/synthetic-customer-panel/scripts/fetch-evidence.ts` — fetches listed
+  public pages into `evidence/sources/` as numbered sources.
+- `skills/synthetic-customer-panel/assets/avatars/` — the default report faces
+  and the prompts that made them.
 - `tests/` — behavior tests for initialization, validation, run preparation,
-  and completed-run validation.
+  completed-run validation, report rendering and evidence fetch.
 
 ## Development verification
 
@@ -240,10 +261,13 @@ The kit went from 1.0.0 to 1.2.3 in seven releases between 2026-07-16 and
 step a script can check, and hardened by a review from a second model family.
 The build story covers each release, the design decisions, the tests, and what
 had to be corrected along the way: [docs/BUILD-STORY.md](docs/BUILD-STORY.md).
+Releases 1.2.4 to 1.2.8 (2026-10-28 and 2026-10-29) added the scoring guards,
+the report page, evidence fetch and the default faces; they are recorded in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Project status
 
-Active, version 1.2.3 (see [CHANGELOG.md](CHANGELOG.md)). Verified working in
+Active, version 1.2.8 (see [CHANGELOG.md](CHANGELOG.md)). Verified working in
 the Claude app and in Codex; claude.ai web is untested. The panel is a
 structured directional signal. It is not a substitute for real customers,
 legal review, accessibility testing, usability testing, analytics or market

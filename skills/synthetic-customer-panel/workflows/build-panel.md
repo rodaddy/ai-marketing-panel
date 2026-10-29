@@ -88,6 +88,16 @@ documents, verified market research, and primary sources when available. Record
 every source in `evidence/SOURCE-NOTES.md` with date, scope, reliability, and
 what it actually supports.
 
+Public customer language (reviews, forum threads, public Q&A) can supplement
+that evidence. Put one URL per line in a list file and run
+`node scripts/fetch-evidence.ts <workspace> <url-list-file>`: each page lands as
+`evidence/sources/S<NNN>.md` and `evidence/SOURCES.md` indexes them. Cite a
+fetched source on a dossier `- Evidence:` line by its id with a verbatim quote,
+for example `- Evidence: S003 "we waited three weeks for a callback" — ...`;
+`validate-panel.ts` checks the quote against every file under `evidence/`.
+Fetched public text supplements the owner's first-party evidence and never
+replaces it: it does not clear the §0 gate.
+
 Never convert a thin demographic stereotype into a precise fictional biography.
 Mark every unsupported but useful modeling choice as an assumption.
 
@@ -119,6 +129,16 @@ dossiers. Merge seats that would predictably react for the same reason.
 Make `panel.json` the roster source of truth. Use stable lowercase seat IDs,
 relative dossier paths under `dossiers/`, and a distinct `decision_signal` for
 each active buyer, user, influencer, or specialist.
+
+Set `gender` (`woman` or `man`) on every seat that is a named person, from its
+dossier and name. It is required on every active buyer, user, and influencer
+seat: `validate-panel.ts` errors `missing-seat-gender` without it. A specialist
+seat such as a gate reviewer may omit it and gets any unused face. Set
+`age_band` (`20s` to `70s`) only when the dossier models age. They only choose
+the seat's default report face. The kit ships 31 faces (17 women, 14 men) and
+never repeats one in a panel: a panel that needs more of a gender, or more in
+total, gets a `not-enough-faces` warning; give the extra seats
+`report-img/<seat-id>.jpg` photos, or the render fails once the defaults run out.
 
 Write one dossier per active seat from `dossiers/DOSSIER-TEMPLATE.md`. Target
 1,200-1,800 words. Keep source-backed observations, composite modeling, and

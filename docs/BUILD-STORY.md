@@ -100,7 +100,6 @@ Panel", which is still the skill's folder name.
 
 ## Current state
 
-Stable at 1.2.3. The author's private repository has since added a
-`render-report.ts` script (October 2026) that renders a validated run as one
-self-contained results page; it is not in this public release yet. There is no
+Stable at 1.2.8. Since 1.2.5 the kit includes `render-report.ts`, which renders
+a validated run as one self-contained results page. There is no
 worked example run in `examples/`.

@@ -4,11 +4,16 @@ import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import type { ValidationIssue } from "./lib.ts";
 import {
   canonicalDirectory,
+  EXECUTION_MODES,
   fileExists,
   formatIssues,
   hasErrors,
+  ISOLATED_MODES,
   resolveReadWithin,
   resolveWriteWithin,
+  SEAT_AGE_BANDS,
+  SEAT_GENDERS,
+  SHARED_CONTEXT_MODE,
   sha256File,
 } from "./lib.ts";
 
@@ -16,12 +21,6 @@ type RecordValue = Record<string, unknown>;
 type ReactionFields = Map<string, string>;
 type MarkdownOutputs = Map<string, string>;
 
-const EXECUTION_MODES = new Set([
-  "unassigned",
-  "isolated-parallel",
-  "isolated-sequential",
-  "sequential-shared-context",
-]);
 const CONFIDENCE = new Set(["LOW", "MEDIUM", "HIGH"]);
 const DECISIONS = new Set(["SHIP", "REVISE", "STOP"]);
 const CITABLE_FIELDS = new Set([
@@ -217,6 +216,12 @@ function validateSnapshot(snapshot: RecordValue, issues: ValidationIssue[]): Sna
       }
       if (typeof seat.name !== "string" || seat.name.trim().length === 0 || typeof seat.dossier !== "string" || seat.dossier.trim().length === 0) {
         add(issues, "error", "snapshot-seat-field", `seat ${id || "(missing id)"} needs name and dossier fields`, "panel-snapshot.json");
+      }
+      if (seat.gender !== undefined && !SEAT_GENDERS.has(seat.gender as string)) {
+        add(issues, "error", "snapshot-seat-gender", `seat ${id || "(missing id)"} gender must be one of ${[...SEAT_GENDERS].join(", ")}`, "panel-snapshot.json");
+      }
+      if (seat.age_band !== undefined && !SEAT_AGE_BANDS.has(seat.age_band as string)) {
+        add(issues, "error", "snapshot-seat-age-band", `seat ${id || "(missing id)"} age_band must be one of ${[...SEAT_AGE_BANDS].join(", ")}`, "panel-snapshot.json");
       }
       if (typeof seat.active !== "boolean") {
         add(issues, "error", "snapshot-seat-active", `seat ${id || "(missing id)"} active must be boolean`, "panel-snapshot.json");
@@ -734,6 +739,73 @@ function validateMarkdownOutputs(outputs: MarkdownOutputs, outcome: OutcomeState
   }
 }
 
+const PRESSED_SUFFIX = ".pressed.md";
+
+/**
+ * Score-level guards that read the reactions themselves: the specialist/core-NO
+ * cap (F2), the recomputed spread and agreement (F3), and the unanimity press (F4).
+ */
+async function validateConsensus(
+  runDir: string,
+  outcome: RecordValue,
+  snapshot: SnapshotState,
+  reactions: Map<string, ReactionFields>,
+  issues: ValidationIssue[],
+): Promise<void> {
+  const path = "OUTCOME.json";
+  const seatOf = (id: string) => snapshot.activeSeats.find((seat) => seat.id === id);
+  const result = isRecord(outcome.result) ? outcome.result : null;
+
+  const capSeats = [...reactions].filter(([id, fields]) => {
+    const seat = seatOf(id);
+    if (seat?.kind === "specialist") return fields.get("GATE") === "FLAG";
+    return seat?.fit === "core" && fields.get("DECISION") === "NO" && /^[45]$/.test(fields.get("INTENSITY") ?? "");
+  }).map(([id]) => id);
+  if (capSeats.length > 0 && result?.decision === "SHIP") {
+    const override = typeof result.override === "string" ? result.override : "";
+    // Whole seat ids only: an override naming buyer-2 must not cover buyer.
+    const named = new Set(override.split(/[^a-z0-9-]+/));
+    const unnamed = capSeats.filter((id) => !named.has(id));
+    if (override.trim().length === 0 || unnamed.length > 0) {
+      add(issues, "error", "cap-not-applied", `result is SHIP while ${capSeats.join(", ")} cap the decision; result.override must name ${unnamed.join(", ") || capSeats.join(", ")}`, path);
+    }
+  }
+
+  const customers = [...reactions].filter(([id]) => {
+    const kind = seatOf(id)?.kind;
+    return kind !== undefined && kind !== "specialist";
+  });
+  const scores = customers.map(([, fields]) => (fields.get("DECISION") === "NO" ? -1 : 1) * Number(fields.get("INTENSITY")));
+  const yes = customers.filter(([, fields]) => fields.get("DECISION") === "YES").length;
+  const expectedSpread = scores.length > 0 ? Math.max(...scores) - Math.min(...scores) : 0;
+  const expectedAgreement = customers.length > 0 ? Math.round(Math.max(yes, customers.length - yes) / customers.length * 100) / 100 : 0;
+  const consensus = isRecord(outcome.consensus) ? outcome.consensus : null;
+  if (!consensus || consensus.spread !== expectedSpread || consensus.agreement !== expectedAgreement) {
+    add(issues, "error", "consensus-mismatch", `OUTCOME.json consensus must be { spread: ${expectedSpread}, agreement: ${expectedAgreement} } recomputed from the customer reactions`, path);
+  }
+
+  const unanimous = customers.length > 0 && (yes === 0 || yes === customers.length);
+  if (!unanimous) return;
+  const pressedSeat = consensus?.pressed_seat;
+  const pressedKind = typeof pressedSeat === "string" ? seatOf(pressedSeat)?.kind : undefined;
+  if (typeof pressedSeat !== "string" || !reactions.has(pressedSeat) || pressedKind === "specialist") {
+    add(issues, "error", "unanimity-unpressed", "every customer seat gave the same DECISION; consensus.pressed_seat must name a customer seat with a reaction", path);
+    return;
+  }
+  const pressedPath = join("reactions", `${pressedSeat}${PRESSED_SUFFIX}`);
+  try {
+    const full = await readRunFile(runDir, pressedPath);
+    if (!(await fileExists(full))) {
+      add(issues, "error", "unanimity-unpressed", `unanimous run has no pressed reaction for ${pressedSeat}`, pressedPath);
+      return;
+    }
+    parseReaction(await readFile(full, "utf8"), pressedSeat, pressedKind, issues, pressedPath);
+    add(issues, "warning", "unverified-isolation", `pressed reaction ${pressedPath} is operator-recorded and unverified; this validator does not prove isolation`, pressedPath);
+  } catch (error) {
+    add(issues, "error", "unanimity-unpressed", error instanceof Error ? error.message : String(error), pressedPath);
+  }
+}
+
 async function validateComplete(
   runDir: string,
   run: RecordValue,
@@ -752,12 +824,12 @@ async function validateComplete(
   if (typeof run.execution_mode !== "string" || !EXECUTION_MODES.has(run.execution_mode) || run.execution_mode === "unassigned") {
     add(issues, "error", "execution-mode", "actual execution mode was not recorded", "RUN.json");
   }
-  if (run.execution_mode === "sequential-shared-context" && (typeof run.degraded_reason !== "string" || run.degraded_reason.trim().length < 8)) {
+  if (run.execution_mode === SHARED_CONTEXT_MODE && (typeof run.degraded_reason !== "string" || run.degraded_reason.trim().length < 8)) {
     add(issues, "error", "degraded-reason", "shared-context execution requires a substantive degraded_reason", "RUN.json");
   }
   if (run.execution_provenance !== "operator-recorded" && run.execution_provenance !== "runtime-attested") {
     add(issues, "error", "execution-provenance", "execution_provenance must be operator-recorded or runtime-attested", "RUN.json");
-  } else if (run.execution_provenance === "operator-recorded" && (run.execution_mode === "isolated-parallel" || run.execution_mode === "isolated-sequential")) {
+  } else if (run.execution_provenance === "operator-recorded" && ISOLATED_MODES.has(run.execution_mode as string)) {
     add(issues, "warning", "unverified-isolation", "isolated execution is operator-recorded and unverified; this validator does not prove isolation", "RUN.json");
   } else if (run.execution_provenance === "runtime-attested") {
     const attestation = isRecord(run.isolation_attestation) ? run.isolation_attestation : null;
@@ -819,14 +891,16 @@ async function validateComplete(
     }
   }
   try {
-    const outcome = validateOutcome(await readJson(await readRunFile(runDir, "OUTCOME.json")), snapshot, reactions, issues);
+    const rawOutcome = await readJson(await readRunFile(runDir, "OUTCOME.json"));
+    const outcome = validateOutcome(rawOutcome, snapshot, reactions, issues);
     if (outcome) validateMarkdownOutputs(outputs, outcome, issues);
+    if (isRecord(rawOutcome)) await validateConsensus(runDir, rawOutcome, snapshot, reactions, issues);
   } catch (error) {
     add(issues, "error", "outcome-json", error instanceof Error ? error.message : String(error), "OUTCOME.json");
   }
   try {
     const reactionsDir = await readRunFile(runDir, "reactions");
-    const names = (await readdir(reactionsDir)).filter((name) => name.endsWith(".md") && name !== "INDEX.md");
+    const names = (await readdir(reactionsDir)).filter((name) => name.endsWith(".md") && name !== "INDEX.md" && !name.endsWith(PRESSED_SUFFIX));
     for (const extra of names.map((name) => name.replace(/\.md$/, "")).filter((name) => !expectedSeats.includes(name))) {
       add(issues, "warning", "extra-reaction", `reaction ${extra} is not in the captured roster and was ignored`, join("reactions", `${extra}.md`));
     }
